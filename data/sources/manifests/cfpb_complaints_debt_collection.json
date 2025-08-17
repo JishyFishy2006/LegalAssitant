@@ -1,0 +1,16 @@
+{
+    "source_id": "cfpb_complaints_debt_collection.json",
+    "title": "Debt Collection Complaints | Consumer Financial Protection Bureau",
+    "description": "A collection of consumer complaints about debt collection submitted to the Consumer Financial Protection Bureau (CFPB).",
+    "type": "json",
+    "url": "https://www.consumerfinance.gov/data-research/consumer-complaints/",
+    "date": "2025-07-30",
+    "agency": "CFPB",
+    "tags": [
+        "debt collection",
+        "complaints",
+        "consumer protection",
+        "cfpb"
+    ],
+    "priority": "medium"
+}
