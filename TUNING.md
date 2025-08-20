@@ -1,6 +1,6 @@
-# Retriever Tuning Guide
+# Legal RAG Assistant Tuning Guide
 
-This document explains the key hyperparameters used to tune the hybrid retriever's performance. These values can be set in the `.env` file for persistent configuration or overridden via command-line arguments for specific tests.
+This document outlines tunable hyperparameters and configuration options for optimizing the Legal RAG Assistant performance across all pipeline components.
 
 ## Key Hyperparameters
 
@@ -43,3 +43,67 @@ To override the `.env` settings for a specific run:
 ```bash
 python scripts/retriever.py "what is the statute of limitations for debt collection?" --k 5 --k_semantic 20 --similarity_threshold 0.75
 ```
+
+## Model Configuration
+
+### Embedding Model
+- **Model**: `nomic-embed-text:latest`
+- **Dimension**: 768
+- **Max Tokens**: 8192
+- **Tunable**: Model selection, chunk size for embeddings
+
+### LLM Model  
+- **Model**: `llama3.1:8b`
+- **Temperature**: 0.1 (factual mode)
+- **Top P**: 0.9
+- **Repeat Penalty**: 1.1
+- **Max Tokens**: 4096
+- **Tunable**: Temperature (0.0-0.3 for factual), top_p, repeat_penalty
+
+## Reranking Parameters
+
+### BGE Reranker
+- **top_k**: 5 (final results)
+- **batch_size**: 32
+- **overlap_weight**: 0.3 (text overlap scoring)
+- **original_weight**: 0.7 (original retrieval score)
+- **Tunable**: top_k (3-10), overlap_weight (0.1-0.5)
+
+## API Configuration
+
+### FastAPI Settings
+- **host**: 0.0.0.0
+- **port**: 8000
+- **reload**: true (development)
+- **workers**: 1
+- **Tunable**: workers (1-4), timeout settings
+
+### Audio Processing
+- **STT Model**: faster-whisper-base
+- **TTS Model**: piper-en_US-lessac-medium
+- **Audio Format**: WAV, 16kHz
+- **Tunable**: Model sizes, sample rates
+
+## Quality Thresholds
+
+### RAGAS Metrics
+- **Faithfulness**: ≥ 0.75
+- **Context Recall**: ≥ 0.6  
+- **Relevance**: ≥ 0.7
+- **Tunable**: Thresholds based on use case requirements
+
+### Response Validation
+- **Min Citations**: 1
+- **Max Response Length**: 2000 tokens
+- **Required Disclaimer**: Legal advice warning
+- **Tunable**: Citation requirements, response length limits
+
+## Environment Variables
+
+Key tunable parameters exposed via .env:
+- `RETRIEVAL_K`: Number of initial candidates
+- `RERANK_TOP_K`: Final result count
+- `LLM_TEMPERATURE`: Response creativity
+- `RRF_K`: Fusion parameter
+- `CHUNK_SIZE`: Document chunking
+- `OVERLAP_SIZE`: Chunk overlap

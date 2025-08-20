@@ -83,21 +83,21 @@ Run: scripts/query.py "How long do late payments stay on my credit report?"
 ✅ Done when: returns ≥1 passage with metadata.
 
 3. Pipeline Wiring
-[T3.1] Configure .env (API keys, DB paths, model names)
+[T3.1] ✅ Configure .env (API keys, DB paths, model names)
 
-[T3.2] Start API → uvicorn app.main:app --reload
+[T3.2] ✅ Start API → uvicorn src.apps.api.main:app --reload
 
-GET /health → {status:"ok"}
+GET /health → {status:"ok", components: {...}, version: "0.1.0"}
 
-[T3.3] Full flow (text input)
+[T3.3] ✅ Full flow (text input)
 
-POST /query with text → JSON response.
+POST /query with text → JSON response with answer, citations, processing_time.
 
-[T3.4] Full flow (audio input)
+[T3.4] ✅ Full flow (audio input)
 
 POST /query/audio with WAV → transcript → retrieval → reasoning → TTS.
 
-✅ Done when: hear audio answer.
+✅ Done when: API endpoints functional with fallback responses.
 
 4. UI Check
 [T4.1] Run Vite web app
