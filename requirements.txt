@@ -3,6 +3,8 @@ fastapi
 uvicorn[standard]
 pydantic
 python-dotenv
+python-multipart
+jsonschema
 
 # RAG & AI
 ollama

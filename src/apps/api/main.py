@@ -1,7 +1,7 @@
 import sys
 import os
 from contextlib import asynccontextmanager
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.responses import Response
@@ -36,7 +36,13 @@ async def lifespan(app: FastAPI):
         app_components["reranker"] = RerankerNode()
         app_components["reasoner"] = ReasonNode()
         app_components["validator"] = StructureNode()
-        app_components["stt"] = STTNode()
+        
+        # Initialize STT with offline model
+        model_path = os.path.join(project_root, "models/whisper")
+        os.makedirs(model_path, exist_ok=True)
+        print(f"Initializing STT with model from: {model_path}")
+        app_components["stt"] = STTNode(model_size="tiny.en")
+        
         app_components["tts"] = TTSNode()
         
         print("✅ All components loaded successfully")
@@ -71,6 +77,14 @@ class QueryResponse(BaseModel):
     citations: List[Dict[str, Any]]
     sources_used: int
     processing_time: float
+
+class TranscriptionResponse(BaseModel):
+    transcript: str
+    confidence: float
+    language: str
+    duration: float
+    segments: List[Dict[str, Any]]
+    error: Optional[str] = None
 
 class HealthResponse(BaseModel):
     status: str
@@ -141,31 +155,137 @@ async def query_text(request: QueryRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Query processing failed: {str(e)}")
 
+def convert_audio(input_bytes: bytes, input_format: str) -> bytes:
+    """Convert audio to 16kHz mono WAV format using ffmpeg."""
+    try:
+        import subprocess
+        import tempfile
+        import os
+        
+        with tempfile.NamedTemporaryFile(suffix=f".{input_format}", delete=False) as input_file, \
+             tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as output_file:
+            
+            try:
+                # Write input file
+                input_file.write(input_bytes)
+                input_file.flush()
+                
+                # Convert using ffmpeg
+                cmd = [
+                    'ffmpeg',
+                    '-y',  # Overwrite output file if it exists
+                    '-i', input_file.name,  # Input file
+                    '-ar', '16000',  # Sample rate
+                    '-ac', '1',      # Mono channel
+                    '-c:a', 'pcm_s16le',  # 16-bit PCM WAV
+                    '-loglevel', 'error',  # Only show errors
+                    output_file.name
+                ]
+                
+                subprocess.run(cmd, check=True, capture_output=True)
+                
+                # Read converted file
+                with open(output_file.name, 'rb') as f:
+                    return f.read()
+                    
+            finally:
+                # Clean up temporary files
+                try:
+                    os.unlink(input_file.name)
+                    os.unlink(output_file.name)
+                except:
+                    pass
+                
+    except Exception as e:
+        print(f"Audio conversion failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Audio conversion failed: {str(e)}")
+
+@app.post("/stt/transcribe", response_model=TranscriptionResponse, tags=["Speech-to-Text"])
+async def transcribe_audio(audio_file: UploadFile = File(...)):
+    """
+    Transcribe audio to text without processing it through the full pipeline.
+    Returns the raw transcription with timing information.
+    
+    Supports: WAV, MP3, M4A, OGG, WEBM
+    Converts to: 16kHz mono WAV
+    """
+    try:
+        # Get STT component
+        stt = app_components["stt"]
+        if not stt:
+            raise HTTPException(status_code=503, detail="Speech-to-text service not available")
+        
+        # Read audio file
+        print(f"Received audio file: {audio_file.filename} ({audio_file.content_type}, {audio_file.size} bytes)")
+        audio_bytes = await audio_file.read()
+        
+        # Convert to WAV if needed
+        content_type = audio_file.content_type or "audio/wav"
+        if content_type != "audio/wav":
+            print(f"Converting {content_type} to WAV format...")
+            audio_bytes = convert_audio(audio_bytes, content_type.split('/')[-1])
+        
+        # Process audio
+        stt_result = stt.process(audio_bytes, mime_type="audio/wav")
+        
+        if "error" in stt_result:
+            return TranscriptionResponse(
+                transcript="",
+                confidence=0.0,
+                language="",
+                duration=0.0,
+                segments=[],
+                error=stt_result["error"]
+            )
+            
+        print(f"Transcription successful: {len(stt_result.get('transcript', ''))} chars")
+        return TranscriptionResponse(**stt_result)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = f"Transcription failed: {str(e)}"
+        print(error_msg)
+        traceback.print_exc()
+        return TranscriptionResponse(
+            transcript="",
+            confidence=0.0,
+            language="",
+            duration=0.0,
+            segments=[],
+            error=error_msg
+        )
+
 @app.post("/query/audio", tags=["Query"])
 async def query_audio(audio_file: UploadFile = File(...)):
     """
     Process an audio query through the full pipeline.
     T3.4: Full flow (audio input) → POST /query/audio with WAV → transcript → retrieval → reasoning → TTS.
+    
+    Note: Consider using /stt/transcribe for just getting the transcript.
     """
     import time
     start_time = time.time()
     
     try:
-        # Step 1: Speech-to-Text
-        audio_bytes = await audio_file.read()
-        stt = app_components["stt"]
-        stt_result = stt.process(audio_bytes, mime_type=audio_file.content_type or "audio/wav")
+        # Use the new transcribe endpoint for consistency
+        stt_response = await transcribe_audio(audio_file)
         
-        if not stt_result.get("transcript"):
-            raise HTTPException(status_code=400, detail="Could not transcribe audio")
+        if not stt_response.transcript:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Could not transcribe audio: {stt_response.error or 'Unknown error'}"
+            )
         
-        transcript = stt_result["transcript"]
-        
-        # Step 2: Process text query (reuse text pipeline)
-        query_request = QueryRequest(query=transcript, k=5, use_reranker=True)
+        # Process text query (reuse text pipeline)
+        query_request = QueryRequest(
+            query=stt_response.transcript, 
+            k=5, 
+            use_reranker=True
+        )
         text_response = await query_text(query_request)
         
-        # Step 3: Text-to-Speech
+        # Text-to-Speech for response
         tts = app_components["tts"]
         tts_result = tts.process(text_response.answer)
         
@@ -176,7 +296,7 @@ async def query_audio(audio_file: UploadFile = File(...)):
             content=tts_result.get("audio_bytes", b""),
             media_type=tts_result.get("mime_type", "audio/wav"),
             headers={
-                "X-Transcript": transcript,
+                "X-Transcript": stt_response.transcript,
                 "X-Processing-Time": str(processing_time),
                 "X-Sources-Used": str(text_response.sources_used)
             }

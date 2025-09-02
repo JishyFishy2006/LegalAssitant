@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import { useState, useRef } from 'react'
 import axios from 'axios'
 import './App.css'
 
@@ -17,29 +17,44 @@ interface QueryResponse {
   error?: string
 }
 
+interface TranscriptionResponse {
+  transcript: string;
+  confidence: number;
+  language: string;
+  duration: number;
+  segments: Array<{
+    start: number;
+    end: number;
+    text: string;
+  }>;
+  error?: string;
+}
+
 function App() {
   const [query, setQuery] = useState('')
   const [response, setResponse] = useState<QueryResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const audioChunksRef = useRef<Blob[]>([])
+    const [transcript, setTranscript] = useState<TranscriptionResponse | null>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
-  const handleTextQuery = async () => {
-    if (!query.trim()) return
+  const handleTextQuery = async (text?: string) => {
+    const queryToSubmit = text || query.trim();
+    if (!queryToSubmit) return;
 
     setLoading(true)
     try {
       const result = await axios.post('/api/query', {
-        query: query.trim(),
+        query: queryToSubmit,
         k: 5
       })
       setResponse(result.data)
     } catch (error) {
       console.error('Query failed:', error)
       setResponse({
-        query: query.trim(),
+        query: queryToSubmit,
         answer: 'Sorry, there was an error processing your request.',
         citations: [],
         sources_used: 0,
@@ -63,10 +78,11 @@ function App() {
       }
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' })
-        setAudioBlob(audioBlob)
-        stream.getTracks().forEach(track => track.stop())
-      }
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+                stream.getTracks().forEach(track => track.stop());
+        // Trigger transcription after state update
+        transcribeAudio(audioBlob);
+      };
 
       mediaRecorder.start()
       setIsRecording(true)
@@ -77,39 +93,70 @@ function App() {
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop()
-      setIsRecording(false)
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
     }
-  }
+  };
+
+  const transcribeAudio = async (blob: Blob) => {
+    setIsTranscribing(true);
+    setTranscript(null);
+    try {
+      const formData = new FormData();
+      formData.append('audio_file', blob, 'query.wav');
+
+      const response = await axios.post<TranscriptionResponse>('/api/stt/transcribe', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      setTranscript(response.data);
+
+      if (response.data.transcript) {
+        setQuery(response.data.transcript);
+        // Automatically submit the transcribed text as a query
+        handleTextQuery(response.data.transcript);
+      }
+    } catch (error) {
+      console.error('Transcription failed:', error);
+      setTranscript({
+        transcript: '',
+        confidence: 0,
+        language: 'en',
+        duration: 0,
+        segments: [],
+        error: 'Failed to transcribe audio',
+      });
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
 
   const handleAudioQuery = async () => {
-    if (!audioBlob) return
+    if (!transcript?.transcript) return;
 
-    setLoading(true)
+    setLoading(true);
     try {
-      const formData = new FormData()
-      formData.append('audio', audioBlob, 'query.wav')
-
-      const result = await axios.post('/api/query/audio', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      })
-      setResponse(result.data)
+      const result = await axios.post<QueryResponse>('/api/query', {
+        query: transcript.transcript,
+        k: 5
+      });
+      setResponse(result.data);
     } catch (error) {
-      console.error('Audio query failed:', error)
+      console.error('Query failed:', error);
       setResponse({
         query: 'Audio query',
-        answer: 'Sorry, there was an error processing your audio request.',
+        answer: 'Sorry, there was an error processing your request.',
         citations: [],
         sources_used: 0,
         processing_time: 0,
-        error: 'Audio processing error'
-      })
+        error: 'Network or server error'
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="App">
@@ -130,7 +177,7 @@ function App() {
               disabled={loading}
             />
             <button 
-              onClick={handleTextQuery} 
+              onClick={() => handleTextQuery()} 
               disabled={loading || !query.trim()}
             >
               {loading ? 'Processing...' : 'Ask Question'}
@@ -151,14 +198,31 @@ function App() {
               </button>
             )}
             
-            {audioBlob && (
-              <button 
-                onClick={handleAudioQuery} 
-                disabled={loading}
-                className="submit-audio"
-              >
-                {loading ? 'Processing...' : '🔍 Submit Audio Query'}
-              </button>
+            {isTranscribing && (
+              <div className="transcript-status">
+                <p>Transcribing your audio...</p>
+              </div>
+            )}
+            
+            {transcript?.transcript && (
+              <div className="transcript-preview">
+                <h4>Transcript:</h4>
+                <p>{transcript.transcript}</p>
+                {loading && <p className="processing-status">Processing your query...</p>}
+              </div>
+            )}
+            
+            {transcript?.error && (
+              <div className="error-message">
+                <p>Error: {transcript.error}</p>
+                <button 
+                  onClick={handleAudioQuery}
+                  disabled={loading}
+                  className="retry-button"
+                >
+                  {loading ? 'Processing...' : '🔍 Try Again'}
+                </button>
+              </div>
             )}
           </div>
         </div>

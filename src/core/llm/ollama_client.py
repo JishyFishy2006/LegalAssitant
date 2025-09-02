@@ -3,7 +3,7 @@ import ollama
 from typing import Dict, Any, List
 
 class OllamaClient:
-    def __init__(self, model: str = "llama3.2"):
+    def __init__(self, model: str = "llama3.2:1b"):
         self.model = model
     
     def chat(self, messages: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
