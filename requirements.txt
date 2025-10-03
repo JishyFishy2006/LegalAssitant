@@ -1,0 +1,28 @@
+# Web & API
+fastapi
+uvicorn[standard]
+pydantic
+python-dotenv
+python-multipart
+jsonschema
+
+# RAG & AI
+ollama
+rank-bm25
+faiss-cpu
+numpy
+torch
+sentence-transformers
+librosa
+
+# Data Parsing
+beautifulsoup4
+lxml
+pypdf
+
+# Evaluation & Testing
+ragas
+pytest
+
+#Whisper
+faster-whisper

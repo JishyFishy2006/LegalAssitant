@@ -1,0 +1,11 @@
+{
+  "source_id": "cfpb_complaints_credit_reporting.json",
+  "title": "CFPB Consumer Complaints: Credit Reporting",
+  "description": "A dataset of consumer complaints regarding credit reporting, compiled by the Consumer Financial Protection Bureau (CFPB).",
+  "type": "json",
+  "url": "https://www.consumerfinance.gov/data-research/consumer-complaints/",
+  "date": "2025-08-15",
+  "agency": "CFPB",
+  "tags": ["complaints", "credit-reporting", "consumer-protection", "dataset"],
+  "priority": "medium"
+}

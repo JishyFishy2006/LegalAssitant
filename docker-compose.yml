@@ -1,0 +1,40 @@
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama  # persist models
+    restart: unless-stopped
+
+  legal-assistant:
+    build: .
+    depends_on:
+      - ollama
+    environment:
+      - OLLAMA_API=http://ollama:11434
+      - OLLAMA_HOST=ollama
+      - OLLAMA_PORT=11434
+      - CORS_ORIGINS=http://localhost:3000,http://frontend:3000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data  # persist data indexes
+      - ./models:/app/models  # persist downloaded models
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - legal-assistant
+    restart: unless-stopped
+
+volumes:
+  ollama_models:

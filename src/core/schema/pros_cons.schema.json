@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pros and Cons Analysis",
+  "type": "object",
+  "properties": {
+    "query": {
+      "type": "string",
+      "description": "The original user query being analyzed"
+    },
+    "overview": {
+      "type": "string",
+      "description": "Brief summary of the legal situation"
+    },
+    "pros": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "point": {
+            "type": "string",
+            "description": "The advantage or benefit"
+          },
+          "explanation": {
+            "type": "string",
+            "description": "Detailed explanation"
+          },
+          "source": {
+            "type": "string",
+            "description": "Source citation"
+          }
+        },
+        "required": ["point", "explanation", "source"]
+      }
+    },
+    "cons": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "point": {
+            "type": "string",
+            "description": "The disadvantage or risk"
+          },
+          "explanation": {
+            "type": "string",
+            "description": "Detailed explanation"
+          },
+          "source": {
+            "type": "string",
+            "description": "Source citation"
+          }
+        },
+        "required": ["point", "explanation", "source"]
+      }
+    },
+    "key_considerations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Important factors to consider"
+    },
+    "recommendation": {
+      "type": "string",
+      "description": "General guidance based on legal information"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "All sources referenced"
+    }
+  },
+  "required": ["query", "overview", "pros", "cons", "key_considerations", "recommendation", "sources"]
+}

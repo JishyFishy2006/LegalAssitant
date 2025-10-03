@@ -1,0 +1,14 @@
+{
+  "source_id": "cfpb_consumer_rights_2023",
+  "title": "CFPB Consumer Financial Protection Rights",
+  "description": "Consumer Financial Protection Bureau guidance on consumer rights and protections",
+  "type": "html",
+  "url": "https://www.consumerfinance.gov/consumer-tools/",
+  "date": "2023-06-15",
+  "agency": "CFPB",
+  "tags": ["consumer_protection", "financial_services", "rights", "complaints"],
+  "priority": "high",
+  "additional_data": {
+    "json_endpoint": "https://www.consumerfinance.gov/data-research/consumer-complaints/search/api/v1/"
+  }
+}
