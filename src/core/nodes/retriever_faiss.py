@@ -4,35 +4,36 @@ import numpy as np
 import faiss
 import argparse
 import pickle
+from pathlib import Path
 from dotenv import load_dotenv
 
 # Add project root to Python path for imports
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 import sys
-sys.path.append(project_root)
+sys.path.append(str(PROJECT_ROOT))
 
 from src.core.llm.ollama_client import OllamaClient
 
 # --- Configuration ---
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-DATA_DIR = os.path.join(BASE_DIR, 'data')
-INDEX_DIR = os.path.join(DATA_DIR, 'index')
-FAISS_INDEX_FILE = os.path.join(INDEX_DIR, 'faiss.index')
-SQLITE_DB_FILE = os.path.join(INDEX_DIR, 'meta.sqlite')
-BM25_INDEX_FILE = os.path.join(INDEX_DIR, 'bm25.pkl')
+BASE_DIR = PROJECT_ROOT
+DATA_DIR = BASE_DIR / 'data'
+INDEX_DIR = DATA_DIR / 'index'
+FAISS_INDEX_FILE = INDEX_DIR / 'faiss.index'
+SQLITE_DB_FILE = INDEX_DIR / 'meta.sqlite'
+BM25_INDEX_FILE = INDEX_DIR / 'bm25.pkl'
 EMBEDDING_MODEL = 'nomic-embed-text'
 
 class Retriever:
     def __init__(self):
         """Initializes the Retriever, loading all indexes and databases."""
         print("Loading all indexes...")
-        if not all(os.path.exists(f) for f in [FAISS_INDEX_FILE, SQLITE_DB_FILE, BM25_INDEX_FILE]):
+        if not all(os.path.exists(str(f)) for f in [FAISS_INDEX_FILE, SQLITE_DB_FILE, BM25_INDEX_FILE]):
             raise FileNotFoundError("One or more index files not found. Please run build_index.py")
 
-        self.faiss_index = faiss.read_index(FAISS_INDEX_FILE)
-        with open(BM25_INDEX_FILE, 'rb') as f:
+        self.faiss_index = faiss.read_index(str(FAISS_INDEX_FILE))
+        with open(str(BM25_INDEX_FILE), 'rb') as f:
             self.bm25_index = pickle.load(f)
-        self.db_conn = sqlite3.connect(SQLITE_DB_FILE)
+        self.db_conn = sqlite3.connect(str(SQLITE_DB_FILE))
 
         cursor = self.db_conn.cursor()
         cursor.execute("SELECT id FROM metadata ORDER BY rowid")
